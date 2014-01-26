@@ -132,6 +132,7 @@ static char* get_executable_name ARGS((const char* command));
 ******************************************************************************/
 void CInit_reset_first()
 {
+  NextCE_quit();
   TracePkg_quit();
   PropPkg_quit();
 
@@ -220,6 +221,7 @@ void CInit_reset_last()
 
   PropPkg_init();
   TracePkg_init();
+  NextCE_init();
 
   if (opt_verbose_level_gt(OptsHandler_get_instance(), 2)) {
     fprintf(nusmv_stderr, "Done\n");
@@ -310,6 +312,9 @@ void CInit_init()
   TracePkg_init();
   traceCmd_init();
 
+  NextCE_init();
+  NextCE_init_cmd();
+
   Utils_pkg_init();
 }
 
@@ -329,6 +334,8 @@ void CInit_end()
 
   Utils_pkg_quit();
 
+  NextCE_quit_cmd();
+  NextCE_quit();
   TracePkg_quit();
   PropPkg_quit_cmd();
   PropPkg_quit();

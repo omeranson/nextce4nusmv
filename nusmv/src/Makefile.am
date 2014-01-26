@@ -36,7 +36,8 @@
 ## parser must be the first package to be built
 SUBDIRS = parser be cmd dag enc ltl mc opt prop sat set \
 	simulate trans trace bmc compile dd fsm node    \
-	rbc cinit utils sexp hrc wff addons_core $(EXTRA_PKGS)
+	rbc cinit utils sexp hrc wff nextce addons_core \
+	$(EXTRA_PKGS)
 
 ## -------------------------------------------------------
 ## The NuSMV's library:
@@ -69,6 +70,7 @@ libnusmvsrc_la_LIBADD = \
 	sexp/libsexp.la          \
 	hrc/libhrc.la            \
 	wff/libwff.la            \
+	nextce/libnextce.la      \
 	addons_core/libaddonscore.la
 
 librbcdag_la_SOURCES =
