@@ -2,6 +2,8 @@
 #include "NextCEPkg.h"
 #include "NextCECmd.h"
 
+#include "cmd/cmd.h"
+
 #define NEXT_CE_CMD_NAME "next_ce"
 #define RESET_CE_CMD_NAME "reset_ce"
 #define COMPUTE_ALL_CE_CMD_NAME "compute_all"

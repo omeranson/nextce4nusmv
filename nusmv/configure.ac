@@ -834,6 +834,7 @@ AC_CONFIG_FILES([Makefile
                  src/ltl/Makefile
                  src/ltl/ltl2smv/Makefile
                  src/mc/Makefile
+                 src/nextce/Makefile
                  src/node/Makefile
                  src/node/printers/Makefile
                  src/node/normalizers/Makefile

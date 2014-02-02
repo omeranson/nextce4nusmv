@@ -172,7 +172,7 @@
 
 /* No sat solvers available */
 #ifndef NUSMV_HAVE_SAT_SOLVER
-#define NUSMV_HAVE_SAT_SOLVER 1
+#define NUSMV_HAVE_SAT_SOLVER 0
 #endif
 
 /* Define to 1 if you have the `setvbuf' function. */
@@ -187,7 +187,7 @@
 
 /* Disables Minisat */
 #ifndef NUSMV_HAVE_SOLVER_MINISAT
-#define NUSMV_HAVE_SOLVER_MINISAT 1
+#define NUSMV_HAVE_SOLVER_MINISAT 0
 #endif
 
 /* Disables ZChaff */
@@ -335,7 +335,7 @@
 
 /* Library build date */
 #ifndef NUSMV_LIBRARY_BUILD_DATE
-#define NUSMV_LIBRARY_BUILD_DATE "Fri Oct 28 13:53:51 UTC 2011"
+#define NUSMV_LIBRARY_BUILD_DATE "Wed Jan 29 18:31:53 UTC 2014"
 #endif
 
 /* Library Email */
@@ -385,7 +385,7 @@
 
 /* Build date */
 #ifndef NUSMV_PACKAGE_BUILD_DATE
-#define NUSMV_PACKAGE_BUILD_DATE "Fri Oct 28 13:53:51 UTC 2011"
+#define NUSMV_PACKAGE_BUILD_DATE "Wed Jan 29 18:31:53 UTC 2014"
 #endif
 
 /* Define to the full name of this package. */
@@ -401,6 +401,11 @@
 /* Define to the one symbol short name of this package. */
 #ifndef NUSMV_PACKAGE_TARNAME
 #define NUSMV_PACKAGE_TARNAME "nusmv"
+#endif
+
+/* Define to the home page for this package. */
+#ifndef NUSMV_PACKAGE_URL
+#define NUSMV_PACKAGE_URL ""
 #endif
 
 /* Define to the version of this package. */

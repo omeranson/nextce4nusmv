@@ -52,6 +52,7 @@
 #include "compile/FlatHierarchy.h"
 #include "utils/WordNumber_private.h" /* for WordNumber_init and ..._quit */
 #include "prop/propPkg.h"
+#include "nextce/NextCEPkg.h"
 #include "dd/VarsHandler.h"
 #include "wff/wff.h"
 
