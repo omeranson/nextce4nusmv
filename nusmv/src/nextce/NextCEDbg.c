@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 
-void nextce_debug(int level, const char * format, ...) {
+int is_nextce_debug(int level) {
 	char * nextce_debug = NULL;
 	int nce_level = -1;
 // #ifdef NUSMV_HAVE_GETENV
@@ -13,6 +13,13 @@ void nextce_debug(int level, const char * format, ...) {
 	}
 // #endif
 	if ((nce_level < 0) || (nce_level < level)) {
+		return 0;
+	}
+	return 1;
+}
+
+void nextce_debug(int level, const char * format, ...) {
+	if (!is_nextce_debug(level)) {
 		return;
 	}
 	va_list args;

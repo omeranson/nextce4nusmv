@@ -161,6 +161,8 @@
 #define KEEP_SINGLE_VALUE_VARS "keep_single_value_vars"
 #define DEFAULT_SIMULATION_STEPS "default_simulation_steps"
 
+#define CE_EQUIVALENCE "ce_equivalence"
+#define DEFAULT_CE_EQUIVALENCE 1
 /*---------------------------------------------------------------------------*/
 /* Variable declarations                                                     */
 /*---------------------------------------------------------------------------*/

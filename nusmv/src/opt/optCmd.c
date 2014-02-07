@@ -48,6 +48,7 @@
 #include "opt/OptsHandler.h"
 #include "trans/transInt.h"
 #include "enc/enc.h"
+#include "nextce/NextCEPkg.h"
 
 
 /* Adds a command which generates tests for the options handler */
@@ -108,6 +109,11 @@ static boolean opt_trace_plugin_trigger ARGS((OptsHandler_ptr opts,
                                               const char* opt,
                                               const char* value,
                                               Trigger_Action action));
+
+static boolean opt_ce_equivalence_trigger(OptsHandler_ptr opts,
+                                        const char* opt,
+                                        const char* value,
+                                        Trigger_Action action);
 
 static boolean opt_dynamic_reorder_trigger ARGS((OptsHandler_ptr opts,
                                                  const char* opt,
@@ -678,6 +684,12 @@ void init_options()
   res = OptsHandler_register_int_option(opts, DEFAULT_SIMULATION_STEPS,
                                         10, true);
   nusmv_assert(res);
+
+
+  res = OptsHandler_register_int_option(opts, CE_EQUIVALENCE,
+					DEFAULT_CE_EQUIVALENCE, true);
+  res = OptsHandler_add_option_trigger(opts, CE_EQUIVALENCE,
+                                         opt_ce_equivalence_trigger);
 }
 
 void deinit_options()
@@ -2868,6 +2880,19 @@ static boolean opt_trace_plugin_trigger(OptsHandler_ptr opts,
   return true;
 }
 
+static boolean opt_ce_equivalence_trigger(OptsHandler_ptr opts,
+                                        const char* opt,
+                                        const char* value,
+                                        Trigger_Action action)
+{
+  int plug = PTR_TO_INT(opt_get_integer(opts, value));
+
+  if (ACTION_SET == action) {
+    NextCE_set_ce_equivalence(plug);
+  }
+
+  return true;
+}
 /**Function********************************************************************
 
    Synopsis    [Trigger function for the trans_order_file option]
