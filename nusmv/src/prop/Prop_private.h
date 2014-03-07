@@ -54,6 +54,7 @@
 #include "utils/object_private.h"
 #include "utils/utils.h"
 
+#include "nextce/NextCE.h"
 
 /**Struct**********************************************************************
 
@@ -127,6 +128,7 @@ typedef struct Prop_TAG
   BoolSexpFsm_ptr bool_fsm;   /* The scalar FSM converted in Boolean */
   BddFsm_ptr      bdd_fsm;    /* The BDD FSM */
   BeFsm_ptr       be_fsm;     /* The BE FSM */
+  NextCE_ptr      nextce_data;/* Next CE information */
 
   /* -------------------------------------------------- */
   /*                  Virtual methods                   */

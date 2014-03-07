@@ -136,11 +136,44 @@ static Expr_ptr generate_disjunc(Prop_ptr prop, Trace_ptr fipath) {
 	return result;
 }
 
+void generate_and_append_disjunc(Prop_ptr prop, Trace_ptr fipath) {
+	Expr_ptr lqi = generate_disjunc(prop, fipath);
+	NextCE_ptr nextce = Prop_get_nextce_data(prop);
+	if (!nextce) {
+		nextce = NextCE_create();
+		Prop_set_nextce_data(prop, nextce);
+	}
+	NextCE_add_disjunct(nextce, lqi);
+}
+
+static Expr_ptr create_new_expr(Prop_ptr prop) {
+	static const char * fname = __func__;
+	Expr_ptr result;
+	Expr_ptr disjunct;
+	node_ptr list;
+	NextCE_ptr nextce;
+
+	nextce_debug(5, "%s: Enter", fname); 
+	result = Prop_get_expr(prop);
+//	ITERATE_DISJUNCTS(Prop_get_nextce_data(prop), list, disjunct) {
+	nextce = Prop_get_nextce_data(prop);
+	for (list = NextCE_get_disjuncts(nextce); list != Nil; list = cdr(list)) {
+		disjunct = car(list);
+		nextce_debug(5, "%s: Orring the disjunct:", fname); 
+		debug_print_expr(disjunct);
+		result = Expr_or(result, disjunct);
+	}
+	nextce_debug(5, "%s: Exit with:", fname); 
+	debug_print_expr(result);
+	return result;
+}
+
 /* Update the property - if property hasn't been checked, do nothing. Otherwise,
 add L_{q_i} to the property.*/ 
 Prop_ptr create_updated_prop(Prop_ptr prop, const options_t * options) {
 	static const char * fname = __func__;
 	Prop_Status status;
+	NextCE_ptr nextce;
 	Trace_ptr trace;
 	Trace_ptr fipath;
 	Expr_ptr Lqi;
@@ -149,19 +182,17 @@ Prop_ptr create_updated_prop(Prop_ptr prop, const options_t * options) {
 	status = Prop_get_status(prop);
 	if ((status == Prop_NoStatus) || (status == Prop_Unchecked)) {
 		nextce_debug(5, "%s: Exit: Propery is not checked", fname); 
-		return prop;
+		return NULL;
+	}
+	nextce = Prop_get_nextce_data(prop);
+	if (nextce && (NextCE_get_status(nextce) == NextCE_True)) {
+		nextce_debug(5, "%s: Exit: Propery is not false", fname); 
+		return NULL;
 	}
 	trace = get_ce(prop);
 	fipath = create_fipath(trace);
-	Lqi = generate_disjunc(prop, fipath);
-	if (!Lqi) {
-		nextce_debug(5, "%s: Failed to generate Lqi", fname); 
-		return prop;
-	}
-//	debug_print_expr(Lqi);
-	newProp = Prop_get_expr(prop);
-	newProp = Expr_or(newProp, Lqi);
-	debug_print_expr(newProp);
+	generate_and_append_disjunc(prop, fipath);
+	newProp = create_new_expr(prop);
 //	Prop_set_expr(newProp);
 /*
 	trace <- get_ce(prop)
@@ -182,19 +213,28 @@ Prop_ptr create_updated_prop(Prop_ptr prop, const options_t * options) {
 */
 int displayNextCE(Prop_ptr prop, const options_t * options) {
 	static const char * fname = __func__;
+	Prop_ptr new_prop;
+	NextCE_ptr nextce;
 	/* TODO We may need to filter properties */
 	nextce_debug(5, "%s: Enter", fname); 
-	prop = create_updated_prop(prop, options);
+	new_prop = create_updated_prop(prop, options);
+	if (!new_prop) {
+		return 0;
+	}
 	if (is_nextce_debug(5)) {
 		printf("%s: About to verify property: ", fname); 
-		Prop_print(prop, stdout, PROP_PRINT_FMT_FORMULA);
+		Prop_print(new_prop, stdout, PROP_PRINT_FMT_FORMULA);
 		printf("\n");
 	}
-	Prop_verify(prop); // Also prints
-	if (Prop_get_status(prop) == Prop_True) {
+	Prop_verify(new_prop); // Also prints
+	nextce = Prop_get_nextce_data(prop);
+	if (Prop_get_status(new_prop) == Prop_True) {
+		NextCE_set_status(nextce, NextCE_True);
 		nextce_debug(5, "%s: No more counterexamples", fname); 
 		return 0;
 	}
+	NextCE_set_status(nextce, NextCE_False);
+	Prop_set_trace(prop, Prop_get_trace(new_prop));
 	nextce_debug(5, "%s: There may be more counterexamples", fname); 
 	return 1;
 }

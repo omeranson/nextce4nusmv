@@ -535,6 +535,14 @@ void Prop_set_name(const Prop_ptr self, const node_ptr name)
 }
 
 
+NextCE_ptr Prop_get_nextce_data(const Prop_ptr self) {
+	return self->nextce_data;
+}
+
+void Prop_set_nextce_data(Prop_ptr self, NextCE_ptr nextce) {
+	self->nextce_data = nextce;
+}
+
 /**Function********************************************************************
 
   Synopsis    [Computes ground scalar sexp fsm for property \"self\"]
@@ -1490,6 +1498,7 @@ void prop_init(Prop_ptr self)
   self->bool_fsm = BOOL_SEXP_FSM(NULL);
   self->bdd_fsm = BDD_FSM(NULL);
   self->be_fsm = (BeFsm_ptr) NULL;
+  self->nextce_data = NEXTCE(NULL);
   self->name = Nil;
 
   /* virtual methods settings */
@@ -1524,6 +1533,7 @@ void prop_deinit(Prop_ptr self)
     if (self->bdd_fsm != BDD_FSM(NULL)) BddFsm_destroy(self->bdd_fsm);
     if (self->bool_fsm != BOOL_SEXP_FSM(NULL)) BoolSexpFsm_destroy(self->bool_fsm);
     if (self->scalar_fsm != SEXP_FSM(NULL)) SexpFsm_destroy(self->scalar_fsm);
+    if (self->nextce_data != NEXTCE(NULL)) NextCE_destroy(self->nextce_data);
   }
 
   /* base class deinitialization */

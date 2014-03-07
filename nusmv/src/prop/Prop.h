@@ -61,6 +61,8 @@
 #include "fsm/bdd/BddFsm.h"
 #include "fsm/be/BeFsm.h"
 
+#include "nextce/NextCE.h"
+
 #include "utils/object.h"
 #include "utils/utils.h"
 
@@ -240,11 +242,13 @@ EXTERN SexpFsm_ptr Prop_get_scalar_sexp_fsm ARGS((const Prop_ptr self));
 EXTERN BoolSexpFsm_ptr Prop_get_bool_sexp_fsm ARGS((const Prop_ptr self));
 EXTERN BddFsm_ptr  Prop_get_bdd_fsm ARGS((const Prop_ptr self));
 EXTERN BeFsm_ptr Prop_get_be_fsm ARGS((const Prop_ptr self));
+EXTERN NextCE_ptr Prop_get_nextce_data ARGS((const Prop_ptr self));
 
 EXTERN void Prop_set_scalar_sexp_fsm ARGS((Prop_ptr self, SexpFsm_ptr fsm));
 EXTERN void Prop_set_bool_sexp_fsm ARGS((Prop_ptr self, BoolSexpFsm_ptr fsm));
 EXTERN void Prop_set_bdd_fsm ARGS((Prop_ptr self, BddFsm_ptr fsm));
 EXTERN void Prop_set_be_fsm ARGS((Prop_ptr self, BeFsm_ptr fsm));
+EXTERN void Prop_set_nextce_data ARGS((Prop_ptr self, NextCE_ptr nextce));
 
 EXTERN Set_t  Prop_compute_cone ARGS((const Prop_ptr self,
                                       FlatHierarchy_ptr hierarchy,

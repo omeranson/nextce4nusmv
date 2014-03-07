@@ -83,7 +83,7 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 LTLIBRARIES = $(noinst_LTLIBRARIES)
 libnextce_la_LIBADD =
-am__objects_1 = NextCEPkg.lo NextCECmd.lo NextCEDbg.lo
+am__objects_1 = NextCEPkg.lo NextCECmd.lo NextCEDbg.lo NextCE.lo
 am_libnextce_la_OBJECTS = $(am__objects_1)
 libnextce_la_OBJECTS = $(am_libnextce_la_OBJECTS)
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
@@ -339,9 +339,11 @@ SUBDIRS =
 CUDD_NAME = $(cuddname)
 CUDD_DIR = ../$(CUDD_NAME)
 INCLUDES = -I. -I.. -I$(top_srcdir)/src -I$(top_srcdir)/$(CUDD_DIR)/include
-PKG_SOURCES = NextCEPkg.h NextCEPkg.c NextCECmd.h NextCECmd.c NextCEDbg.h NextCEDbg.c
+PKG_SOURCES = NextCEPkg.h NextCEPkg.c NextCECmd.h NextCECmd.c \
+		NextCEDbg.h NextCEDbg.c NextCE.h NextCE.c
+
 nextcedir = $(includedir)/nusmv/nextce
-nextce_HEADERS = NextCEPkg.h NextCECmd.h NextCEDbg.h
+nextce_HEADERS = NextCEPkg.h NextCECmd.h NextCEDbg.h NextCE.h
 
 # -------------------------------------------------------
 noinst_LTLIBRARIES = libnextce.la
@@ -398,6 +400,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/NextCE.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/NextCECmd.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/NextCEDbg.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/NextCEPkg.Plo@am__quote@

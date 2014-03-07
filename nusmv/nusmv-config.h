@@ -335,7 +335,7 @@
 
 /* Library build date */
 #ifndef NUSMV_LIBRARY_BUILD_DATE
-#define NUSMV_LIBRARY_BUILD_DATE "Fri Feb  7 19:07:55 UTC 2014"
+#define NUSMV_LIBRARY_BUILD_DATE "Fri Mar  7 09:50:18 UTC 2014"
 #endif
 
 /* Library Email */
@@ -385,7 +385,7 @@
 
 /* Build date */
 #ifndef NUSMV_PACKAGE_BUILD_DATE
-#define NUSMV_PACKAGE_BUILD_DATE "Fri Feb  7 19:07:54 UTC 2014"
+#define NUSMV_PACKAGE_BUILD_DATE "Fri Mar  7 09:50:18 UTC 2014"
 #endif
 
 /* Define to the full name of this package. */

@@ -41,10 +41,11 @@ CUDD_DIR = ../$(CUDD_NAME)
 
 INCLUDES = -I. -I.. -I$(top_srcdir)/src -I$(top_srcdir)/$(CUDD_DIR)/include
 
-PKG_SOURCES = NextCEPkg.h NextCEPkg.c NextCECmd.h NextCECmd.c NextCEDbg.h NextCEDbg.c
+PKG_SOURCES = NextCEPkg.h NextCEPkg.c NextCECmd.h NextCECmd.c \ 
+		NextCEDbg.h NextCEDbg.c NextCE.h NextCE.c
 
 nextcedir = $(includedir)/nusmv/nextce
-nextce_HEADERS = NextCEPkg.h NextCECmd.h NextCEDbg.h
+nextce_HEADERS = NextCEPkg.h NextCECmd.h NextCEDbg.h NextCE.h
 
 # -------------------------------------------------------
 
