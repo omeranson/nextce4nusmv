@@ -370,10 +370,42 @@ int CommandCEResetCE(int argc, char ** argv) {
 	return rc;
 }
 
+void compuateAllDoOne(Prop_ptr prop, options_t * options) {
+	int rc;
+	do {
+		rc = displayNextCE(prop, options);
+	} while (rc != 0);
+}
+
+int computeAllDo(options_t * options) {
+	static const char * fname = __func__;
+	int cnt;
+	PropDb_ptr propdb = PropPkg_get_prop_database();
+	if (options->prop_num != -1) {
+		Prop_ptr prop = PropDb_get_prop_at_index(propdb, options->prop_num);
+		compuateAllDoOne(prop, options);
+		return 0;
+	}
+	/* Iterate all properties */
+	for (cnt = 0; cnt < PropDb_get_size(propdb); cnt++) {
+		Prop_ptr prop = PropDb_get_prop_at_index(propdb, cnt);
+		compuateAllDoOne(prop, options);
+	}
+	return 0;
+}
+
 int CommandCEComputeAll(int argc, char ** argv) {
 	static const char * fname = "CommandCEComputeAll";
+	options_t options = {-1};
+	int rc;
 	nextce_debug(5, "%s: Enter", fname); 
+	rc = populateOptions(&options, "compute_all", argc, argv);
+	if (rc != 0) {
+		return rc;
+	}
+	rc = computeAllDo(&options);
 	nextce_debug(5, "%s: Exit", fname); 
+	return rc;
 /* Algo:
 	For each prop in properties
 		prop <- clone(property to check )
@@ -385,6 +417,5 @@ int CommandCEComputeAll(int argc, char ** argv) {
 		}
 	endfor
 */
-	return 0;
 }
 
