@@ -179,28 +179,27 @@ Prop_ptr create_updated_prop(Prop_ptr prop, const options_t * options) {
 	Expr_ptr Lqi;
 	Expr_ptr newProp;
 	nextce_debug(5, "%s: Enter", fname); 
+	nextce = Prop_get_nextce_data(prop);
+	if (nextce && (NextCE_get_status(nextce) == NextCE_Reset)) {
+		nextce_debug(5, "%s: Exit: Property CE reset - starting anew", fname); 
+		/* Return clone */
+		return Prop_create_partial(Prop_get_expr(prop), Prop_get_type(prop));
+	}
 	status = Prop_get_status(prop);
 	if ((status == Prop_NoStatus) || (status == Prop_Unchecked)) {
-		nextce_debug(5, "%s: Exit: Propery is not checked", fname); 
-		return NULL;
+		nextce_debug(5, "%s: Exit: Propery is not checked - string anew", fname); 
+		return prop;
 	}
-	nextce = Prop_get_nextce_data(prop);
 	if (nextce && (NextCE_get_status(nextce) == NextCE_True)) {
 		nextce_debug(5, "%s: Exit: Propery is not false", fname); 
+		fprintf(stdout, "No more counterexamples\n");
 		return NULL;
 	}
 	trace = get_ce(prop);
 	fipath = create_fipath(trace);
 	generate_and_append_disjunc(prop, fipath);
 	newProp = create_new_expr(prop);
-//	Prop_set_expr(newProp);
 /*
-	trace <- get_ce(prop)
-	fipath <- create_fipath(trace)
-	L_q_i <- generate_disjunc(prop, fipath)
-	debug print L_q_i
-	append_disjunct(prop, L_q_i)	
-	debug print prop
 	free_disjunc(L_q_i)
 	free_fipath(fipath)
 */
@@ -228,9 +227,13 @@ int displayNextCE(Prop_ptr prop, const options_t * options) {
 	}
 	Prop_verify(new_prop); // Also prints
 	nextce = Prop_get_nextce_data(prop);
+	if (!nextce) {
+		nextce = NextCE_create();
+		Prop_set_nextce_data(prop, nextce);
+	}
 	if (Prop_get_status(new_prop) == Prop_True) {
 		NextCE_set_status(nextce, NextCE_True);
-		nextce_debug(5, "%s: No more counterexamples", fname); 
+		fprintf(stdout, "No more counterexamples\n");
 		return 0;
 	}
 	NextCE_set_status(nextce, NextCE_False);
@@ -256,46 +259,73 @@ int nextceDo(const options_t * options) {
 	return 0;
 }
 
-int NextCEUsage() {
-	fprintf(nusmv_stderr, "Usage: next_ce [-h] [ [ -n index ] | [ -P name ] ]\n");
+static void resetceDoOne(Prop_ptr prop, const options_t * options) {
+	NextCE_ptr nextce = Prop_get_nextce_data(prop);
+	if (!nextce) {
+		nextce = NextCE_create();
+		Prop_set_nextce_data(prop, nextce);
+	} else {
+		NextCE_clear_disjuncts(nextce);
+	}
+	NextCE_set_status(nextce, NextCE_Reset);
+	return 0;
+}
+
+int resetceDo(const options_t * options) {
+	static const char * fname = __func__;
+	int cnt;
+	PropDb_ptr propdb = PropPkg_get_prop_database();
+	if (options->prop_num != -1) {
+		Prop_ptr prop = PropDb_get_prop_at_index(propdb, options->prop_num);
+		resetceDoOne(prop, options);
+		return 0;
+	}
+	/* Iterate all properties */
+	for (cnt = 0; cnt < PropDb_get_size(propdb); cnt++) {
+		Prop_ptr prop = PropDb_get_prop_at_index(propdb, cnt);
+		resetceDoOne(prop, options);
+	}
+	return 0;
+}
+
+int NextCEUsage(const char * name) {
+	fprintf(nusmv_stderr, "Usage: %s [-h] [ [ -n index ] | [ -P name ] ]\n", name);
 	fprintf(nusmv_stderr, "  -h \t\tPrints this message\n");
 	fprintf(nusmv_stderr, "  -n \t\tDisplay next counter example for property numbered 'index'\n");
 	fprintf(nusmv_stderr, "  -P \t\tDisplay next counter example for property named 'name'\n");
 	return 1;
 }
 
-int CommandCENextCE(int argc, char ** argv) {
-	static const char * fname = "CommandCENextCE";
-	int rc;
+int populateOptions(options_t * options, const char * name, int argc, char ** argv) {
+	static const char * fname = __func__;
 	int c;
-	options_t options = {-1};
 	nextce_debug(5, "%s: Enter", fname); 
 	util_getopt_reset();
 	while ((c = util_getopt(argc, argv, "hn:P:")) != EOF) {
 		switch (c) {
 		case 'h':
-			return NextCEUsage();
+			return NextCEUsage(name);
 		case 'n':
-			if (options.prop_num != -1) {
-				return NextCEUsage();
+			if (options->prop_num != -1) {
+				return NextCEUsage(name);
 			}
-			options.prop_num = PropDb_get_prop_index_from_string(
+			options->prop_num = PropDb_get_prop_index_from_string(
 					PropPkg_get_prop_database(),
 					util_optarg);
-			if (options.prop_num == -1) {
+			if (options->prop_num == -1) {
 				return(1);
 			}
 			break;
 		case 'P': {
 			char * formula_name;
-			if (options.prop_num != -1) {
-				return NextCEUsage();
+			if (options->prop_num != -1) {
+				return NextCEUsage(name);
 			}
 			formula_name = util_strsav(util_optarg);
-			options.prop_num = PropDb_get_prop_index_from_string(
+			options->prop_num = PropDb_get_prop_index_from_string(
 					PropPkg_get_prop_database(),
 					util_optarg);
-			if (options.prop_num == -1) {
+			if (options->prop_num == -1) {
 				fprintf(nusmv_stderr, "No property named '%s'\n",
 						formula_name);
 				FREE(formula_name);
@@ -307,9 +337,20 @@ int CommandCENextCE(int argc, char ** argv) {
 		}
 	}
 	if (argc != util_optind) {
-		return NextCEUsage();
+		return NextCEUsage(name);
 	}
-	debug_show_options(fname, &options);
+	debug_show_options(fname, options);
+	return 0;
+}
+
+int CommandCENextCE(int argc, char ** argv) {
+	static const char * fname = "CommandCENextCE";
+	int rc;
+	options_t options = {-1};
+	rc = populateOptions(&options, "next_ce", argc, argv);
+	if (rc != 0) {
+		return rc;
+	}
 	rc = nextceDo(&options);
 	nextce_debug(5, "%s: Exit", fname); 
 	return rc;
@@ -317,9 +358,16 @@ int CommandCENextCE(int argc, char ** argv) {
 
 int CommandCEResetCE(int argc, char ** argv) {
 	static const char * fname = "CommandCEResetCE";
+	int rc;
+	options_t options = {-1};
 	nextce_debug(5, "%s: Enter", fname); 
+	rc = populateOptions(&options, "reset_ce", argc, argv);
+	if (rc != 0) {
+		return rc;
+	}
+	rc = resetceDo(&options);
 	nextce_debug(5, "%s: Exit", fname); 
-	return 0;
+	return rc;
 }
 
 int CommandCEComputeAll(int argc, char ** argv) {

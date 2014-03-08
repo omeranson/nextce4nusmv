@@ -9,6 +9,7 @@ typedef struct nextce_t * NextCE_ptr;
 
 typedef enum {
 	NextCE_Unknown,
+	NextCE_Reset,
 	NextCE_False,
 	NextCE_True
 } NextCE_Status;
@@ -18,7 +19,7 @@ void NextCE_destroy(NextCE_ptr self);
 
 node_ptr NextCE_get_disjuncts(NextCE_ptr self);
 void NextCE_add_disjunct(NextCE_ptr self, Expr_ptr disjunct);
-void NextCE_clear_disjuncts(NextCE_ptr self, Expr_ptr disjunct);
+void NextCE_clear_disjuncts(NextCE_ptr self);
 
 NextCE_Status NextCE_get_status(NextCE_ptr self);
 void NextCE_set_status(NextCE_ptr self, NextCE_Status status);

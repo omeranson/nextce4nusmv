@@ -28,7 +28,7 @@ void NextCE_add_disjunct(NextCE_ptr self, Expr_ptr disjunct) {
 	self->disjuncts = cons(disjunct, self->disjuncts);
 }
 
-void NextCE_clear_disjuncts(NextCE_ptr self, Expr_ptr disjunct) {
+void NextCE_clear_disjuncts(NextCE_ptr self) {
 /* TODO Possibly free list members (but I don't undestand node memory management):
 	node_ptr list;
 	Expr_ptr disjunct;
