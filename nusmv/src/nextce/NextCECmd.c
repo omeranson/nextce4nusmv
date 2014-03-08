@@ -406,16 +406,5 @@ int CommandCEComputeAll(int argc, char ** argv) {
 	rc = computeAllDo(&options);
 	nextce_debug(5, "%s: Exit", fname); 
 	return rc;
-/* Algo:
-	For each prop in properties
-		prop <- clone(property to check )
-		while (true) {
-			Prop_verify(prop); // Also prints
-			if (Prop_get_status(prop) == Prop_True) {
-				break; // We're done with this property
-			}
-		}
-	endfor
-*/
 }
 
