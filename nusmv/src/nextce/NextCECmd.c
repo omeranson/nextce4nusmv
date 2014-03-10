@@ -101,23 +101,15 @@ static Expr_ptr get_inv(Prop_ptr prop) {
 	return expr; /* Unhealthy default */
 }
 
-static Expr_ptr generate_disjunc(Prop_ptr prop, Trace_ptr fipath) {
+static Expr_ptr generate_state_eq(Trace_ptr trace, TraceIter iter) {
 	static const char * fname = __func__;
-	TraceIter last_state;
 	TraceSymbolsIter symbols_iter;
-	Expr_ptr result = NULL;
-	Expr_ptr inv = NULL;
 	node_ptr symbol = NULL;
-	SymbTable_ptr symb_table;
-	/* At the moment only treat case 4: Last state */
-	nextce_debug(5, "%s: Enter", fname);
-	inv = get_inv(prop);
-	result = Expr_not(inv);
-	symb_table = Trace_get_symb_table(fipath);
-	last_state = Trace_last_iter(fipath);
-	last_state = TraceIter_get_prev(last_state);
-	TRACE_SYMBOLS_FOREACH(fipath, TRACE_ITER_ALL_VARS, symbols_iter, symbol) {
-		node_ptr value = Trace_step_get_value(fipath, last_state, symbol);
+	Expr_ptr result = NULL;
+	SymbTable_ptr symb_table = Trace_get_symb_table(trace);
+
+	TRACE_SYMBOLS_FOREACH(trace, TRACE_ITER_ALL_VARS, symbols_iter, symbol) {
+		node_ptr value = Trace_step_get_value(trace, iter, symbol);
 		Expr_ptr symb_val_pair;
 		if (!value) {
 			nextce_debug(5, "%s: Did not find symbol:", fname);
@@ -128,9 +120,109 @@ static Expr_ptr generate_disjunc(Prop_ptr prop, Trace_ptr fipath) {
 			continue;
 		}
 		symb_val_pair = Expr_equal(symbol, value, symb_table);
-		result = Expr_and(result, symb_val_pair);
+		if (result) {
+			result = Expr_and(result, symb_val_pair);
+		} else {
+			result = symb_val_pair;
+		}
 	}
+	if (is_nextce_debug(5)) {
+		printf("%s: Exiting with:", fname);
+		if (result) {
+			print_node(stdout, result);
+		} else {
+			printf("Nothing");
+		}
+		printf("\n");
+	}
+	return result;
+}
+
+static Expr_ptr generate_disjunc_1(Prop_ptr prop, Trace_ptr fipath) {
+	static const char * fname = __func__;
+	nextce_debug(5, "%s: Enter", fname);
+	return Expr_true();
+}
+
+static Expr_ptr generate_disjunc_2(Prop_ptr prop, Trace_ptr fipath) {
+	static const char * fname = __func__;
+//	TraceIter state;
+//	Expr_ptr last = NULL;
+//	Expr_ptr before_last = NULL;
+//	Expr_ptr result = NULL;
+
+	nextce_debug(5, "%s: Enter", fname);
+//	state = Trace_last_iter(fipath);
+//	state = TraceIter_get_prev(state);
+//	last = generate_state_eq(fipath, state);
+//	state = TraceIter_get_prev(state);
+//	before_last = generate_state_eq(fipath, state);
+//	inv = get_inv(prop);
+//	result = Expr_and(Expr_next(before_last), last);
+//	result = Expr_and(Expr_not(inv), result);
+//	result = nextce_expr_until(inv, result);
+//	return result;
+	return Expr_true();
+}
+
+static Expr_ptr generate_disjunc_4(Prop_ptr prop, Trace_ptr fipath);
+static Expr_ptr generate_disjunc_3(Prop_ptr prop, Trace_ptr fipath) {
+	static const char * fname = __func__;
+	TraceIter first_state;
+	Expr_ptr first = NULL;
+	Expr_ptr result = NULL;
+
+	nextce_debug(5, "%s: Enter", fname);
+	result = generate_disjunc_4(prop, fipath);
+	first_state = Trace_first_iter(fipath);
+	first = generate_state_eq(fipath, first_state);
+	if (!first) { /* Should never happen */
+		return result;
+	}
+	if (!result) { /* Should never happen */
+		return first;
+	}
+	return Expr_and(first, result);
+}
+
+static Expr_ptr generate_disjunc_4(Prop_ptr prop, Trace_ptr fipath) {
+	static const char * fname = __func__;
+	TraceIter last_state;
+	TraceSymbolsIter symbols_iter;
+	Expr_ptr result = NULL;
+	Expr_ptr inv = NULL;
+	node_ptr symbol = NULL;
+	SymbTable_ptr symb_table;
+
+	nextce_debug(5, "%s: Enter", fname);
+	inv = get_inv(prop);
+	last_state = Trace_last_iter(fipath);
+	last_state = TraceIter_get_prev(last_state);
+	result = generate_state_eq(fipath, last_state);
+	result = Expr_and(Expr_not(inv), result);
 	result = nextce_expr_until(inv, result);
+	return result;
+}
+
+static Expr_ptr generate_disjunc(Prop_ptr prop, Trace_ptr fipath) {
+	static const char * fname = __func__;
+	Expr_ptr result = NULL;
+	int eq_class = NextCE_get_equivalence_class();
+	nextce_debug(5, "%s: Enter: eq class (%d)", fname, eq_class);
+	switch (eq_class) {
+		case 1:
+			result = generate_disjunc_1(prop, fipath);
+			break;
+		case 2:
+			result = generate_disjunc_2(prop, fipath);
+			break;
+		case 3:
+			result = generate_disjunc_3(prop, fipath);
+			break;
+		case 4:
+			result = generate_disjunc_4(prop, fipath);
+			break;
+	}
 	nextce_debug(5, "%s: Exit", fname);
 	debug_print_expr(result);
 	return result;
@@ -356,6 +448,11 @@ int CommandCENextCE(int argc, char ** argv) {
 	return rc;
 }
 
+void resetAllCE() {
+	options_t options = {-1};
+	resetceDo(&options);
+}
+
 int CommandCEResetCE(int argc, char ** argv) {
 	static const char * fname = "CommandCEResetCE";
 	int rc;
@@ -382,7 +479,8 @@ int computeAllDo(options_t * options) {
 	int cnt;
 	PropDb_ptr propdb = PropPkg_get_prop_database();
 	if (options->prop_num != -1) {
-		Prop_ptr prop = PropDb_get_prop_at_index(propdb, options->prop_num);
+		Prop_ptr prop = PropDb_get_prop_at_index(propdb,
+				options->prop_num);
 		compuateAllDoOne(prop, options);
 		return 0;
 	}
@@ -406,5 +504,21 @@ int CommandCEComputeAll(int argc, char ** argv) {
 	rc = computeAllDo(&options);
 	nextce_debug(5, "%s: Exit", fname); 
 	return rc;
+}
+
+/* I despise globals, but creating a global instance for a single integer seems
+a bit much. If we ever have more than this single int as a global, we should
+switch over. */
+static int equivalence_class = 1;
+
+int NextCE_get_equivalence_class() {
+	return equivalence_class;
+}
+
+void NextCE_set_equivalence_class(int class) {
+	static const char * fname = __func__;
+	nextce_debug(5, "%s: Enter with %d", fname, class);
+	resetAllCE();
+	equivalence_class = class;
 }
 

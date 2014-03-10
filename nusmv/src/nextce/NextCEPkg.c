@@ -29,6 +29,6 @@ void NextCE_quit(void) {
 }
 
 void NextCE_set_ce_equivalence(int eq_class) {
-	/* TODO set equivalence class type and clear data since we will need to
-		start over if this is changed */
+	NextCE_set_equivalence_class(eq_class);
 }
+
