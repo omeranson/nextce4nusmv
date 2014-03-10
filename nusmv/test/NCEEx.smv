@@ -1,0 +1,22 @@
+MODULE main
+VAR
+	s: {s0,s1,s2,s3};
+	p: boolean;
+ASSIGN
+	init(s) := s0;
+	next(s) := case
+		s = s0 : {s0,s1};
+		s = s1 : {s1,s0,s2,s3};
+		s = s2 : {s2};
+		s = s3 : {s3};
+	esac union s;
+	p := case
+		s = s0 : TRUE;
+		s = s1 : TRUE;
+		s = s2 : FALSE;
+		s = s3 : FALSE;
+	esac;
+LTLSPEC
+	G(p)
+
+
