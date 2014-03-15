@@ -85,6 +85,12 @@ static Expr_ptr nextce_expr_until(Expr_ptr phi, Expr_ptr psi) {
 	return result;
 }
 
+/* Create X \psi */
+static Expr_ptr nextce_expr_next(Expr_ptr psi) {
+	Expr_ptr result = new_node(OP_NEXT, psi, Nil);
+	return result;
+}
+
 static Expr_ptr get_inv(Prop_ptr prop) {
 	Expr_ptr expr = Prop_get_expr(prop);
 	int type = node_get_type(expr);
@@ -146,23 +152,24 @@ static Expr_ptr generate_disjunc_1(Prop_ptr prop, Trace_ptr fipath) {
 
 static Expr_ptr generate_disjunc_2(Prop_ptr prop, Trace_ptr fipath) {
 	static const char * fname = __func__;
-//	TraceIter state;
-//	Expr_ptr last = NULL;
-//	Expr_ptr before_last = NULL;
-//	Expr_ptr result = NULL;
+	TraceIter state;
+	Expr_ptr inv = NULL;
+	Expr_ptr last = NULL;
+	Expr_ptr before_last = NULL;
+	Expr_ptr result = NULL;
+	SymbTable_ptr symb_table = Trace_get_symb_table(fipath);
 
 	nextce_debug(5, "%s: Enter", fname);
-//	state = Trace_last_iter(fipath);
-//	state = TraceIter_get_prev(state);
-//	last = generate_state_eq(fipath, state);
-//	state = TraceIter_get_prev(state);
-//	before_last = generate_state_eq(fipath, state);
-//	inv = get_inv(prop);
-//	result = Expr_and(Expr_next(before_last), last);
-//	result = Expr_and(Expr_not(inv), result);
-//	result = nextce_expr_until(inv, result);
-//	return result;
-	return Expr_true();
+	state = Trace_last_iter(fipath);
+	state = TraceIter_get_prev(state);
+	last = generate_state_eq(fipath, state);
+	state = TraceIter_get_prev(state);
+	before_last = generate_state_eq(fipath, state);
+	inv = get_inv(prop);
+	result = Expr_and(before_last, nextce_expr_next(last));
+	result = Expr_and(Expr_not(inv), result);
+	result = nextce_expr_until(inv, result);
+	return result;
 }
 
 static Expr_ptr generate_disjunc_4(Prop_ptr prop, Trace_ptr fipath);
@@ -360,7 +367,6 @@ static void resetceDoOne(Prop_ptr prop, const options_t * options) {
 		NextCE_clear_disjuncts(nextce);
 	}
 	NextCE_set_status(nextce, NextCE_Reset);
-	return 0;
 }
 
 int resetceDo(const options_t * options) {
