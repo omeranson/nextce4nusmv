@@ -146,8 +146,25 @@ static Expr_ptr generate_state_eq(Trace_ptr trace, TraceIter iter) {
 
 static Expr_ptr generate_disjunc_1(Prop_ptr prop, Trace_ptr fipath) {
 	static const char * fname = __func__;
-	nextce_debug(5, "%s: Enter", fname);
-	return Expr_true();
+	TraceIter state;
+	Expr_ptr inv = NULL;
+	Expr_ptr expr = NULL;
+	Expr_ptr result = NULL;
+	nextce_debug(5, "%s: Enter", fname); 
+
+	inv = get_inv(prop);
+	state = Trace_last_iter(fipath);
+	state = TraceIter_get_prev(state);
+	expr = generate_state_eq(fipath, state);
+	result = expr;
+	state = TraceIter_get_prev(state);
+	while (state != NULL)
+	{
+		expr = generate_state_eq(fipath, state);
+		result = Expr_and(expr,nextce_expr_next(result));
+		state = TraceIter_get_prev(state);
+	}
+	return result;
 }
 
 static Expr_ptr generate_disjunc_2(Prop_ptr prop, Trace_ptr fipath) {
@@ -162,7 +179,7 @@ static Expr_ptr generate_disjunc_2(Prop_ptr prop, Trace_ptr fipath) {
 	nextce_debug(5, "%s: Enter", fname);
 	state = Trace_last_iter(fipath);
 	state = TraceIter_get_prev(state);
-	last = generate_state_eq(fipath, state);
+	last = generate_state_eq(fipath, state);	
 	state = TraceIter_get_prev(state);
 	before_last = generate_state_eq(fipath, state);
 	inv = get_inv(prop);
