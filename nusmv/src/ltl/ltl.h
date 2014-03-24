@@ -83,6 +83,7 @@ typedef node_ptr (*Ltl_StructCheckLtlSpec_ltl2smv) ARGS((unsigned int, node_ptr)
 EXTERN void print_ltlspec ARGS((FILE*, Prop_ptr));
 EXTERN void Ltl_Init ARGS((void));
 EXTERN void Ltl_CheckLtlSpec ARGS((Prop_ptr prop));
+EXTERN void Ltl_CheckLtlSpecSilent ARGS((Prop_ptr prop));
 
 EXTERN void 
 Ltl_spec_to_hierarchy ARGS((Expr_ptr spec, node_ptr context, 

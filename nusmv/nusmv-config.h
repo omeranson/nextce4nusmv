@@ -335,7 +335,7 @@
 
 /* Library build date */
 #ifndef NUSMV_LIBRARY_BUILD_DATE
-#define NUSMV_LIBRARY_BUILD_DATE "Fri Mar  7 09:50:18 UTC 2014"
+#define NUSMV_LIBRARY_BUILD_DATE "Sun Mar 16 17:35:00 UTC 2014"
 #endif
 
 /* Library Email */
@@ -385,7 +385,7 @@
 
 /* Build date */
 #ifndef NUSMV_PACKAGE_BUILD_DATE
-#define NUSMV_PACKAGE_BUILD_DATE "Fri Mar  7 09:50:18 UTC 2014"
+#define NUSMV_PACKAGE_BUILD_DATE "Sun Mar 16 17:35:00 UTC 2014"
 #endif
 
 /* Define to the full name of this package. */
@@ -430,7 +430,7 @@
 
 /* The size of `long', as computed by sizeof. */
 #ifndef NUSMV_SIZEOF_LONG
-#define NUSMV_SIZEOF_LONG 8
+#define NUSMV_SIZEOF_LONG 4
 #endif
 
 /* The size of `long long', as computed by sizeof. */
@@ -440,7 +440,7 @@
 
 /* The size of `void *', as computed by sizeof. */
 #ifndef NUSMV_SIZEOF_VOID_P
-#define NUSMV_SIZEOF_VOID_P 8
+#define NUSMV_SIZEOF_VOID_P 4
 #endif
 
 /* Define to 1 if you have the ANSI C header files. */
@@ -450,9 +450,7 @@
 
 /* Define to 1 if `lex' declares `yytext' as a `char *' by default, not a
    `char[]'. */
-#ifndef NUSMV_YYTEXT_POINTER
-#define NUSMV_YYTEXT_POINTER 1
-#endif
+/* #undef YYTEXT_POINTER */
 
 /* Define to __FUNCTION__ or "" if `__func__' does not conform to ANSI C. */
 /* #undef __func__ */

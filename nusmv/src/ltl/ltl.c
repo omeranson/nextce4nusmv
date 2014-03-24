@@ -168,7 +168,7 @@ static bdd_ptr ltl_clean_bdd ARGS((Ltl_StructCheckLtlSpec_ptr, bdd_ptr));
   SeeAlso     []
 
 ******************************************************************************/
-void Ltl_CheckLtlSpec(Prop_ptr prop)
+static void Ltl_CheckLtlSpecEx(Prop_ptr prop, int silent)
 {
   BddELFwdSavedOptions_ptr elfwd_saved_options = (BddELFwdSavedOptions_ptr) NULL;
   Ltl_StructCheckLtlSpec_ptr cls;
@@ -193,18 +193,20 @@ void Ltl_CheckLtlSpec(Prop_ptr prop)
   /* action */
   Ltl_StructCheckLtlSpec_build(cls);
   Ltl_StructCheckLtlSpec_check(cls);
-  Ltl_StructCheckLtlSpec_print_result(cls);
+  if (!silent) {
+	  Ltl_StructCheckLtlSpec_print_result(cls);
 
-  if (bdd_isnot_false(cls->dd, cls->s0) &&
-      opt_counter_examples(OptsHandler_get_instance())) {
+	  if (bdd_isnot_false(cls->dd, cls->s0) &&
+	      opt_counter_examples(OptsHandler_get_instance())) {
 
-    SexpFsm_ptr sexp_fsm; /* needed for trace lanugage */
-    sexp_fsm = Prop_get_scalar_sexp_fsm(prop);
-    /* The scalar fsm is set within the property by the
-       Ltl_StructCheckLtlSpec_build procedure. It must exist. */
-    SEXP_FSM_CHECK_INSTANCE(sexp_fsm);
+	    SexpFsm_ptr sexp_fsm; /* needed for trace lanugage */
+	    sexp_fsm = Prop_get_scalar_sexp_fsm(prop);
+	    /* The scalar fsm is set within the property by the
+	       Ltl_StructCheckLtlSpec_build procedure. It must exist. */
+	    SEXP_FSM_CHECK_INSTANCE(sexp_fsm);
 
-    Ltl_StructCheckLtlSpec_explain(cls, SexpFsm_get_symbols_list(sexp_fsm));
+	    Ltl_StructCheckLtlSpec_explain(cls, SexpFsm_get_symbols_list(sexp_fsm));
+	  }
   }
 
   /* cleanup */
@@ -214,6 +216,15 @@ void Ltl_CheckLtlSpec(Prop_ptr prop)
   if (elfwd_saved_options != (BddELFwdSavedOptions_ptr) NULL) {
     Bdd_elfwd_restore_options(BDD_ELFWD_OPT_ALL, elfwd_saved_options);
   }
+}
+
+
+void Ltl_CheckLtlSpec(Prop_ptr prop) {
+	Ltl_CheckLtlSpecEx(prop, 0);
+}
+
+void Ltl_CheckLtlSpecSilent(Prop_ptr prop) {
+	Ltl_CheckLtlSpecEx(prop, 1);
 }
 
 /**Function********************************************************************

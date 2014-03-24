@@ -1,0 +1,157 @@
+MODULE main
+VAR
+state : {OFF,P1,P2,P3,P4,TAPE_PLAYING,TAPE_BACKWARD,TAPE_FORWARD,CD_PLAYING,CURRENT_BACKWARD,FORMER_TRACK,CURRENT_FORWARD,NEXT_TRACK};
+e : {forward,back,tape_insert,tape_eject,play,cd_insert,cd_eject};
+power : boolean;
+tapein : boolean;
+cdin   : boolean;
+trackCount : {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20};
+currentTrack : {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20};
+n : {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20};
+ASSIGN
+init(e) := {forward,back,tape_insert,tape_eject,play,cd_insert,cd_eject};
+next(e) := {forward,back,tape_insert,tape_eject,play,cd_insert,cd_eject};
+init(power)  	:= FALSE;
+next(power)  	:= {TRUE,FALSE};
+
+init(tapein) 	:= {TRUE,FALSE};
+next(tapein) 	:= case
+ e=tape_eject : FALSE;
+ e=tape_insert : TRUE;
+ TRUE : {TRUE,FALSE};
+esac; 
+
+init(cdin)   	:= {TRUE,FALSE};
+next(cdin) 	:= case
+ e=cd_eject : FALSE;
+ e=cd_insert : TRUE;
+ TRUE : {TRUE,FALSE};
+esac; 
+
+init(n) 	:= {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20};
+next(n) 	:= n;
+
+init(trackCount) := n;
+next(trackCount) := case
+ (state=CD_PLAYING |state=CURRENT_BACKWARD|state=FORMER_TRACK|state=CURRENT_FORWARD|state=NEXT_TRACK) & e = cd_eject & cdin : 0;
+ (state=P1 |state=P2|state=P3|state=P4) & e = cd_insert & !cdin & !tapein : n;
+ (state=TAPE_PLAYING |state=TAPE_BACKWARD|state=TAPE_FORWARD) & e = cd_insert & !cdin & tapein : n;
+ TRUE : n;
+esac; 
+
+init(currentTrack) := {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20};
+next(currentTrack) := case
+ state=CURRENT_FORWARD & currentTrack<trackCount : currentTrack + 1;
+ state=CURRENT_FORWARD & currentTrack=trackCount : 1;
+ state=CURRENT_BACKWARD & currentTrack=1 : trackCount;
+ state=CURRENT_BACKWARD & currentTrack>1 : currentTrack - 1;
+ e=cd_eject : 0;
+ e=cd_insert : 1;
+ state=CD_PLAYING & currentTrack<trackCount : currentTrack + 1;
+ TRUE : currentTrack;
+esac; 
+
+next(state) := case
+ --t1
+ (state=P1|state=P2|state=P3|state=P4) & e=cd_insert & !tapein : CD_PLAYING;
+ --t2
+ (state=P1|state=P2|state=P3|state=P4) & e=tape_insert & !tapein & !cdin : TAPE_PLAYING;
+ --t3
+ (state=CD_PLAYING|state=CURRENT_BACKWARD|state=FORMER_TRACK|state=CURRENT_FORWARD|state=NEXT_TRACK) & e=cd_eject & !tapein & cdin : 															TAPE_PLAYING;
+ --t4
+ (state=TAPE_PLAYING|state=TAPE_BACKWARD|state=TAPE_FORWARD) & e=cd_insert & tapein & !cdin : CD_PLAYING;
+ --t5
+ (state=CD_PLAYING|state=CURRENT_BACKWARD|state=FORMER_TRACK|state=CURRENT_FORWARD|state=NEXT_TRACK) & e=cd_eject & tapein & cdin : P1;
+ --t6
+ state=CD_PLAYING & e=tape_eject & tapein & cdin : CD_PLAYING;
+ state=CURRENT_BACKWARD & e=tape_eject & tapein & cdin : CURRENT_BACKWARD;
+ state=FORMER_TRACK & e=tape_eject & tapein & cdin : FORMER_TRACK;
+ state=CURRENT_FORWARD & e=tape_eject & tapein & cdin : CURRENT_FORWARD;
+ state=NEXT_TRACK & e=tape_eject & tapein & cdin : NEXT_TRACK;
+ --t7
+ (state=CD_PLAYING|state=CURRENT_BACKWARD|state=FORMER_TRACK|state=CURRENT_FORWARD|state=NEXT_TRACK) & e=tape_insert & cdin & !tapein : TAPE_PLAYING;
+ --t8
+ (state=TAPE_PLAYING|state=TAPE_BACKWARD|state=TAPE_FORWARD) & e=tape_insert & cdin & tapein : CD_PLAYING;
+ --t9
+(state=TAPE_PLAYING|state=TAPE_BACKWARD|state=TAPE_FORWARD) & e=tape_eject & !cdin & tapein : P1;
+ --t10
+ state=TAPE_PLAYING & e=cd_eject & tapein & cdin : TAPE_PLAYING;
+ state=TAPE_BACKWARD & e=cd_eject & tapein & cdin : TAPE_BACKWARD;
+ state=TAPE_FORWARD & e=cd_eject & tapein & cdin : TAPE_FORWARD;
+ --t11
+ state=P1 & e=forward : P2;
+ --t12
+ state=P2 & e=back : P1;
+ --t13
+ state=P2 & e=forward : P3;
+ --t14
+ state=P3 & e=back : P2;
+ --t15
+ state=P3 & e=forward : P4;
+ --t16
+ state=P4 & e=back : P3;
+ --t17
+ state=P4 & e=forward : P1;
+ --t18
+ state=P1 & e=back : P4;
+ --t19
+ state=CD_PLAYING & e=back : CURRENT_BACKWARD;
+ --t20
+ state=FORMER_TRACK & e=play : CD_PLAYING;
+ --t21
+ state=CD_PLAYING & e=forward : CURRENT_FORWARD;
+ --t22
+ state=NEXT_TRACK & e=play : CD_PLAYING;
+ --t23
+ state=CURRENT_BACKWARD & currentTrack=1 : FORMER_TRACK;
+ --t24
+ state=CURRENT_BACKWARD & currentTrack>1 : FORMER_TRACK;
+ --t25
+ state=FORMER_TRACK & e=back : CURRENT_BACKWARD;
+ --t26
+ state=CURRENT_FORWARD & currentTrack=trackCount : NEXT_TRACK;
+ --t27
+ state=CURRENT_FORWARD & currentTrack<trackCount : NEXT_TRACK;
+ --t28
+ state=NEXT_TRACK & e=back : CURRENT_FORWARD;
+ --t29
+ state=TAPE_PLAYING & e=back : TAPE_BACKWARD;
+ --t30
+ state=TAPE_BACKWARD & e=forward : TAPE_PLAYING;
+ --t31
+ state=TAPE_FORWARD & e=play : TAPE_PLAYING;
+ --t32
+ state=TAPE_PLAYING & e=forward : TAPE_FORWARD;
+ --t33
+ state=OFF & power : P1;
+ --t34
+ state!=OFF & !power : OFF;
+ --t35
+ state=CD_PLAYING & currentTrack<trackCount & e=play : CD_PLAYING;
+
+ TRUE : state;
+esac; 
+
+--LTLSPEC G (pt>24 <-> (state=ON_UP | state=ON_DOWN))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

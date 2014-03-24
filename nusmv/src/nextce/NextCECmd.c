@@ -17,6 +17,9 @@ typedef struct {
 	int prop_num;
 } options_t;
 
+static Expr_ptr generate_state_eq(Trace_ptr trace, TraceIter iter);
+static Expr_ptr get_inv(Prop_ptr prop);
+
 void debug_show_options(const char * fname, const options_t *options) {
 	nextce_debug(5, "%s: Showing options:", fname);
 	nextce_debug(5, "%s: \tprop_num: %d", fname, options->prop_num);
@@ -32,9 +35,136 @@ static Trace_ptr get_ce(Prop_ptr prop) {
 	return trace;
 }
 
-static void fipath_trunc(Trace_ptr trace) {
-	/* TODO Stub */
-	// NOP;
+/* Returns 0 if false, 1 if true */
+//static int nextce_test_expr_in_step(TraceIter step, Expr_ptr expr) {
+//	static const char * fname = __func__;
+//	/* I don't know - Maybe:
+//	 * 	Create FSM. Initial state: step's variables. Transition: Loop.
+//	 * 	Expr: expr
+//	 * Should work for non-temporals.
+//	 */
+//	Prop_ptr prop;
+//	int rc = 0;
+//
+//	prop = Prop_create_partial(expr, Prop_Ltl);
+//	if (is_nextce_debug(5)) {
+//		printf("%s: Checking if state fullfills property:\n", fname);
+//		Ltl_CheckLtlSpec(prop);
+//	} else {
+//		Ltl_CheckLtlSpecSilent(prop);
+//	}
+//	rc = (Prop_get_status(prop) == Prop_True);
+//	Prop_destroy(prop);
+//	return rc;
+//}
+
+static Expr_ptr conjunct(node_ptr dest, node_ptr src) {
+	if (dest) {
+		return Expr_and(dest, src);
+	}
+	return src;
+}
+
+static FlatHierarchy_ptr create_new_prop_flat_hierarchy(
+		Trace_ptr trace, TraceIter step) {
+	Expr_ptr init = NULL;
+	Expr_ptr trans = NULL;
+	node_ptr symbol = NULL;
+	TraceSymbolsIter symbols_iter;
+	SymbTable_ptr st;
+	SymbTable_ptr newSt;
+	SymbLayer_ptr layer;
+	FlatHierarchy_ptr fh;
+
+	st = Trace_get_symb_table(trace);
+	newSt = SymbTable_create();
+	layer = SymbTable_create_layer(newSt, NULL, SYMB_LAYER_POS_BOTTOM);
+	fh = FlatHierarchy_create(newSt);
+	TRACE_SYMBOLS_FOREACH(trace, TRACE_ITER_ALL_VARS, symbols_iter, symbol) {
+		SymbType_ptr type = SymbTable_get_var_type(st, symbol);
+		SymbLayer_declare_state_var(layer, symbol, type);
+		node_ptr value = Trace_step_get_value(trace, step, symbol);
+		Expr_ptr initAss = Expr_equal(symbol, value, newSt);
+		Expr_ptr transAss = Expr_equal(Expr_next(symbol, newSt), value, newSt);
+		FlatHierarchy_add_var(fh, symbol);
+		init = conjunct(init, initAss);
+		trans = conjunct(trans, transAss);
+	}
+	FlatHierarchy_set_init(fh, init);
+	FlatHierarchy_set_trans(fh, trans);
+	return fh;
+}
+
+/* In the following function, these debug messages can be used:
+ * To debug sexpfsm:
+	printf("Scalar expression FSM:\n");
+	printf("Init:\n");
+	print_node(stdout, SexpFsm_get_init(sexpfsm));
+	printf("\n");
+	printf("Invar:\n");
+	print_node(stdout, SexpFsm_get_invar(sexpfsm));
+	printf("\n");
+	printf("Trans:\n");
+	print_node(stdout, SexpFsm_get_trans(sexpfsm));
+	printf("\n");
+	printf("Input:\n");
+	print_node(stdout, SexpFsm_get_input(sexpfsm));
+	printf("\n");
+ * To debug new_fsm:
+	BddFsm_print_reachable_states_info(new_fsm, true, true, false, stdout);
+	BddFsm_print_reachable_states_info(new_fsm, false, true, true, stdout);
+ */
+EXTERN FsmBuilder_ptr global_fsm_builder;
+static Prop_ptr get_new_prop_to_test(Prop_ptr prop, Expr_ptr expr, Trace_ptr trace, TraceIter step) {
+	SexpFsm_ptr sexpfsm;
+	BddFsm_ptr prop_bdd_fsm;
+	BddFsm_ptr new_fsm;
+	TransType  trans_type;
+	BddEnc_ptr bdd_enc;
+	Prop_ptr res;
+	FlatHierarchy_ptr fh;
+
+	fh = create_new_prop_flat_hierarchy(trace, step);
+	sexpfsm = SexpFsm_create(fh, FlatHierarchy_get_vars(fh));
+	FlatHierarchy_destroy(fh);
+
+	/* Obtain the BddFsm of the original property */
+	prop_bdd_fsm = Prop_get_bdd_fsm(prop);
+
+	/* get the needed encoders */
+	bdd_enc = BddFsm_get_bdd_encoding(prop_bdd_fsm);
+
+	trans_type = GenericTrans_get_type(GENERIC_TRANS(BddFsm_get_trans(prop_bdd_fsm)));
+	new_fsm = FsmBuilder_create_bdd_fsm(global_fsm_builder, bdd_enc, sexpfsm, trans_type);
+	res = Prop_create_partial(expr, Prop_Ltl);
+	Prop_set_bdd_fsm(res, new_fsm);
+	Prop_set_scalar_sexp_fsm(res, sexpfsm);
+	SexpFsm_destroy(sexpfsm);
+	return res;
+}
+
+static int test_expr_in_state(Prop_ptr prop, Expr_ptr expr, Trace_ptr trace, TraceIter step) {
+	Prop_ptr test = get_new_prop_to_test(prop, expr, trace, step);
+	// Prop_verify(test);
+	Ltl_CheckLtlSpecSilent(test);
+	return (Prop_get_status(test) == Prop_True);
+}
+
+static void fipath_trunc(Prop_ptr prop, Trace_ptr trace) {
+	static const char * fname = __func__;
+	TraceIter first;
+	TraceIter step;
+	Expr_ptr inv = get_inv(prop);
+	int cnt = 1;
+
+	TRACE_FOREACH(trace, step) {
+		if (!test_expr_in_state(prop, inv, trace, step)) {
+			first = step;
+			break;
+		}
+		++cnt;
+	}
+	nextce_debug(5, "%s: truncating from step: %d", fname, cnt);
 }
 
 static void fipath_progress(Trace_ptr trace) {
@@ -57,10 +187,10 @@ static void fipath_reduce_vals(Trace_ptr trace) {
 }
 
 /* Create a FIPATH from a counter example, as defined in the paper. */
-static Trace_ptr create_fipath(Trace_ptr trace) {
+static Trace_ptr create_fipath(Prop_ptr prop, Trace_ptr trace) {
 	static const char * fname = __func__;
 	Trace_ptr result = Trace_copy(trace, TRACE_END_ITER, FALSE);
-	fipath_trunc(result);
+	fipath_trunc(prop, result);
 	fipath_progress(result);
 	fipath_reduce_config_loops(result);
 	fipath_reduce_init_config(result);
@@ -312,7 +442,7 @@ Prop_ptr create_updated_prop(Prop_ptr prop, const options_t * options) {
 		return NULL;
 	}
 	trace = get_ce(prop);
-	fipath = create_fipath(trace);
+	fipath = create_fipath(prop, trace);
 	generate_and_append_disjunc(prop, fipath);
 	newProp = create_new_expr(prop);
 /*
