@@ -238,6 +238,14 @@ Trace_copy (const Trace_ptr self, const TraceIter until_here,
   return trace_copy(self, until_here, is_volatile);
 }
 
+Trace_ptr
+Trace_copy_ex (const Trace_ptr self, const TraceIter from_here,
+		const TraceIter until_here, boolean is_volatile)
+{
+  TRACE_CHECK_INSTANCE(self);
+  return trace_copy_ex(self, from_here, until_here, is_volatile);
+}
+
 
 /**Function********************************************************************
 

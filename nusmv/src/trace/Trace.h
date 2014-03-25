@@ -271,6 +271,9 @@ Trace_create ARGS((SymbTable_ptr st, const char* desc,
 EXTERN Trace_ptr
 Trace_copy ARGS((const Trace_ptr self, const TraceIter until_here,
                  boolean is_volatile));
+EXTERN Trace_ptr
+Trace_copy_ex ARGS((const Trace_ptr self, const TraceIter from_here,
+		const TraceIter until_here, boolean is_volatile));
 
 EXTERN Trace_ptr
 Trace_concat ARGS((Trace_ptr self, Trace_ptr* other));

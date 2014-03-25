@@ -470,7 +470,7 @@ trace_destroy(Trace_ptr self)
 
 
 Trace_ptr
-trace_copy (Trace_ptr self, TraceIter until_here,
+trace_copy_ex (Trace_ptr self, TraceIter from_here, TraceIter until_here,
             boolean is_volatile)
 {
   Trace_ptr res = ALLOC(Trace, 1);
@@ -527,7 +527,10 @@ trace_copy (Trace_ptr self, TraceIter until_here,
 
   /* phase 4: copy var and define frame data until given iterator */
   {
-    TraceIter src_iter = trace_first_iter(self);
+    TraceIter src_iter = from_here; 
+    if (!src_iter) {
+    	src_iter = trace_first_iter(self);
+    }
     TraceIter dst_iter = trace_first_iter(res);
 
     while (TRACE_END_ITER != src_iter) {
@@ -560,7 +563,10 @@ trace_copy (Trace_ptr self, TraceIter until_here,
   {
     if (trace_is_frozen(self)) {
       TraceIter res_iter = trace_first_iter(res);
-      TraceIter src_iter = trace_first_iter(self);
+      TraceIter src_iter = from_here;
+      if (!src_iter) {
+      	  src_iter = trace_first_iter(self);
+      }
 
       while (TRACE_END_ITER != res_iter) {
         res_iter->loopback = src_iter->loopback;
@@ -576,6 +582,13 @@ trace_copy (Trace_ptr self, TraceIter until_here,
 
   return res;
 }  /* trace_copy */
+
+Trace_ptr
+trace_copy (Trace_ptr self, TraceIter until_here,
+            boolean is_volatile)
+{
+	return trace_copy_ex(self, NULL, until_here, is_volatile);
+}
 
 /* returns true iff self and other have the same language */
 static inline boolean

@@ -11,6 +11,7 @@
 #include "trace/pkg_trace.h"
 #include "parser/symbols.h"
 #include "node/node.h"
+#include "ltl/ltl.h"
 
 extern FILE * nusmv_stderr;
 typedef struct {
@@ -150,9 +151,9 @@ static int test_expr_in_state(Prop_ptr prop, Expr_ptr expr, Trace_ptr trace, Tra
 	return (Prop_get_status(test) == Prop_True);
 }
 
-static void fipath_trunc(Prop_ptr prop, Trace_ptr trace) {
+static TraceIter find_trunc_trace_step(Prop_ptr prop, Trace_ptr trace) {
 	static const char * fname = __func__;
-	TraceIter first;
+	TraceIter first = NULL;
 	TraceIter step;
 	Expr_ptr inv = get_inv(prop);
 	int cnt = 1;
@@ -164,37 +165,104 @@ static void fipath_trunc(Prop_ptr prop, Trace_ptr trace) {
 		}
 		++cnt;
 	}
-	nextce_debug(5, "%s: truncating from step: %d", fname, cnt);
+	nextce_debug(5, "%s: truncating from step (exclusive): %d", fname, cnt);
+	return first;
 }
 
-static void fipath_progress(Trace_ptr trace) {
-	/* TODO Stub */
-	/* For each step in trace,
-		if next step is same step, then
-			remove step */
+static Expr_ptr construct_is_init_state_expr(
+		Trace_ptr trace, SexpFsm_ptr sexpfsm) {
+	static const char * fname = __func__;
+	TraceSymbolsIter symbols_iter;
+	node_ptr symbol = NULL;
+	Expr_ptr result = NULL;
+	SymbTable_ptr symb_table = Trace_get_symb_table(trace);
+
+	TRACE_SYMBOLS_FOREACH(trace, TRACE_ITER_ALL_VARS, symbols_iter, symbol) {
+		node_ptr value = SexpFsm_get_var_init(sexpfsm, symbol);
+		Expr_ptr symb_val_pair;
+		if (!value) {
+			nextce_debug(5, "%s: Did not find symbol:", fname);
+			if (is_nextce_debug(5)) {
+				print_node(nusmv_stderr, symbol);
+			}
+			nextce_debug(5, "");
+			continue;
+		}
+		if (Expr_get_type(value) == EQUAL) {
+			nextce_debug(5, "%s: Expr type is equals", fname);
+		}
+		value = cdr(value);		
+		symb_val_pair = Expr_setin(symbol, value, symb_table);
+		if (result) {
+			result = Expr_and(result, symb_val_pair);
+		} else {
+			result = symb_val_pair;
+		}
+	}
+	if (is_nextce_debug(5)) {
+		printf("%s: Exiting with:", fname);
+		if (result) {
+			print_node(stdout, result);
+		} else {
+			printf("Nothing");
+		}
+		printf("\n");
+	}
+	return result;
+	
 }
 
-static void fipath_reduce_config_loops(Trace_ptr trace) {
-	/* TODO Stub */
-}
+static TraceIter find_init_trace_step(
+		Prop_ptr prop, Trace_ptr trace, TraceIter until_here) {
+	static const char * fname = __func__;
+	SexpFsm_ptr sexpfsm = Prop_get_scalar_sexp_fsm(prop);
+	Expr_ptr expr;
+	TraceIter last = NULL;
+	TraceIter step;
+	int cnt = 1;
+	int last_cnt = 0;
 
-static void fipath_reduce_init_config(Trace_ptr trace) {
-	/* TODO Stub */
-}
-
-static void fipath_reduce_vals(Trace_ptr trace) {
-	/* TODO Stub */
+	expr = construct_is_init_state_expr(trace, sexpfsm);
+	if (is_nextce_debug(5)) {
+		printf("%s: Testing against this expression:\n", fname);
+		print_node(stdout, expr);
+		printf("\n");
+	}
+	TRACE_FOREACH(trace, step) {
+		if (step == until_here) {
+			break;
+		}
+		if (test_expr_in_state(prop, expr, trace, step)) {
+			last = step;
+			last_cnt = cnt;
+		}
+		++cnt;
+	}
+	nextce_debug(5, "%s: trimming up to step (exclusive): %d", fname, last_cnt);
+	return last;
 }
 
 /* Create a FIPATH from a counter example, as defined in the paper. */
 static Trace_ptr create_fipath(Prop_ptr prop, Trace_ptr trace) {
 	static const char * fname = __func__;
-	Trace_ptr result = Trace_copy(trace, TRACE_END_ITER, FALSE);
-	fipath_trunc(prop, result);
+	TraceIter until_here = find_trunc_trace_step(prop, trace);
+	TraceIter from_here = find_init_trace_step(prop, trace, until_here);
+	Trace_ptr result = Trace_copy_ex(trace, from_here,
+			until_here, FALSE);
+/*	TODO We assume these are given to us by NuSMV.
 	fipath_progress(result);
 	fipath_reduce_config_loops(result);
-	fipath_reduce_init_config(result);
-	fipath_reduce_vals(result);
+	fipath_reduce_vals(result);*/
+	if (is_nextce_debug(5)) {
+		static TracePlugin_ptr plugin = NULL;
+		static TraceOpt_ptr opt = NULL;
+		if (!plugin) {
+			plugin = TraceExplainer_create(true);
+			opt = TraceOpt_create_from_env(OptsHandler_get_instance());
+		}
+		printf("Created this fipath:\n");
+		TracePlugin_action(plugin, result, opt);
+	}
 	return result;
 }
 
@@ -284,7 +352,6 @@ static Expr_ptr generate_disjunc_1(Prop_ptr prop, Trace_ptr fipath) {
 
 	inv = get_inv(prop);
 	state = Trace_last_iter(fipath);
-	state = TraceIter_get_prev(state);
 	expr = generate_state_eq(fipath, state);
 	result = expr;
 	state = TraceIter_get_prev(state);
@@ -308,7 +375,6 @@ static Expr_ptr generate_disjunc_2(Prop_ptr prop, Trace_ptr fipath) {
 
 	nextce_debug(5, "%s: Enter", fname);
 	state = Trace_last_iter(fipath);
-	state = TraceIter_get_prev(state);
 	last = generate_state_eq(fipath, state);	
 	state = TraceIter_get_prev(state);
 	before_last = generate_state_eq(fipath, state);
@@ -351,7 +417,6 @@ static Expr_ptr generate_disjunc_4(Prop_ptr prop, Trace_ptr fipath) {
 	nextce_debug(5, "%s: Enter", fname);
 	inv = get_inv(prop);
 	last_state = Trace_last_iter(fipath);
-	last_state = TraceIter_get_prev(last_state);
 	result = generate_state_eq(fipath, last_state);
 	result = Expr_and(Expr_not(inv), result);
 	result = nextce_expr_until(inv, result);
