@@ -289,6 +289,12 @@ static Expr_ptr nextce_expr_next(Expr_ptr psi) {
 	return result;
 }
 
+/* Create Y \psi */
+static Expr_ptr nextce_expr_prev(Expr_ptr psi) {
+	Expr_ptr result = new_node(OP_PREC, psi, Nil);
+	return result;
+}
+
 static Expr_ptr get_inv(Prop_ptr prop) {
 	Expr_ptr expr = Prop_get_expr(prop);
 	int type = node_get_type(expr);
@@ -379,7 +385,7 @@ static Expr_ptr generate_disjunc_2(Prop_ptr prop, Trace_ptr fipath) {
 	state = TraceIter_get_prev(state);
 	before_last = generate_state_eq(fipath, state);
 	inv = get_inv(prop);
-	result = Expr_and(before_last, nextce_expr_next(last));
+	result = Expr_and(nextce_expr_prev(before_last), last);
 	result = Expr_and(Expr_not(inv), result);
 	result = nextce_expr_until(inv, result);
 	return result;
