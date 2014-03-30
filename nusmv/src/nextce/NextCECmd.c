@@ -9,6 +9,7 @@
 #include "trace/Trace.h"
 #include "trace/TraceManager.h"
 #include "trace/pkg_trace.h"
+#include "trace/plugins/TraceExplainer.h"
 #include "parser/symbols.h"
 #include "node/node.h"
 #include "ltl/ltl.h"
@@ -359,12 +360,12 @@ static Expr_ptr generate_disjunc_1(Prop_ptr prop, Trace_ptr fipath) {
 	inv = get_inv(prop);
 	state = Trace_last_iter(fipath);
 	expr = generate_state_eq(fipath, state);
-	result = expr;
+	result = Expr_and(Expr_not(inv), expr);
 	state = TraceIter_get_prev(state);
 	while (state != NULL)
 	{
 		expr = generate_state_eq(fipath, state);
-		result = Expr_and(expr,nextce_expr_next(result));
+		result = Expr_and(expr, nextce_expr_until(inv, result));
 		state = TraceIter_get_prev(state);
 	}
 	return result;

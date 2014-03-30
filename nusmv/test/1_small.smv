@@ -1,0 +1,31 @@
+MODULE main
+VAR
+state : {OFF,IDLE,ON};
+e : {enter,exit};
+t : {0,1,2,3};
+pt : {0,1,2,3};
+ASSIGN
+init(e) := exit;
+next(e) := {enter,exit};
+init(t) := {0,1,2,3};
+next(t) := {0,1,2,3};
+init(pt) := 0;
+next(pt) := case
+ state != next(state) : t;
+ TRUE : pt;
+ esac;
+init(state) := OFF;
+next(state) := case
+ state = OFF & e = enter & t <= 1 : IDLE;
+ state = OFF & e = enter & t > 1 : ON;
+ state = IDLE & e = exit : OFF;
+ state = IDLE & t >=1 : ON;
+ state = ON & e=exit : OFF;
+ state = ON & t <=2 : IDLE;
+ TRUE : state;
+ esac; 
+
+LTLSPEC G (pt>1 <-> state=ON)
+
+
+
