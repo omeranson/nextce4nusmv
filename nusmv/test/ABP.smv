@@ -1,0 +1,105 @@
+MODULE sender(ack)
+VAR
+	st : {sending,sent};
+	message1 : boolean;
+	message2 : boolean;
+ASSIGN
+	init(st) := sending;
+	next(st) := case
+			ack = message2 & !(st=sent) : sent;
+			TRUE 			    : sending;
+		esac;
+	next(message1) :=
+		case
+			st = sent : {FALSE,TRUE};
+			TRUE : message1;
+		esac;
+	next(message2) :=
+		case
+			st = sent : !message2;
+			TRUE : message2;
+		esac;
+FAIRNESS running
+LTLSPEC G F st=sent
+
+-------------------------------------------------
+
+MODULE receiver(message1,message2)
+	VAR
+		st : {receiving,received};
+		ack : boolean;
+		expected : boolean;
+	ASSIGN
+		init(st) := receiving;
+		next(st) := case
+				message2=expected & !(st=received) : received;
+				TRUE : receiving;
+			esac;
+		next(ack) :=
+			case
+				st = received : message2;
+				TRUE : ack;
+			esac;
+		next(expected) :=
+			case
+				st = received : !expected;
+				TRUE : expected;
+			esac;
+			
+FAIRNESS running
+LTLSPEC G F st=received
+
+-------------------------------------------------
+
+MODULE one-bit-chan(input)
+VAR
+	output : boolean;
+	forget : boolean;
+ASSIGN
+	next(output) := case
+						forget : output;
+						TRUE: input;
+			       esac;
+FAIRNESS running
+FAIRNESS input & !forget
+FAIRNESS !input & !forget
+
+-------------------------------------------------
+
+MODULE two-bit-chan(input1,input2)
+VAR
+	forget : boolean;
+	output1 : boolean;
+	output2 : boolean;
+ASSIGN
+	next(output1) := case
+						forget : output1;
+						TRUE: input1;
+					 esac;
+	next(output2) := case
+						forget : output2;
+						TRUE: input2;
+					 esac;
+FAIRNESS running
+FAIRNESS input1 & !forget
+FAIRNESS !input1 & !forget
+FAIRNESS input2 & !forget
+FAIRNESS !input2 & !forget
+
+-------------------------------------------------
+
+MODULE main
+VAR
+	s : process sender(ack_chan.output);
+	r : process receiver(msg_chan.output1,msg_chan.output2);
+	msg_chan : process two-bit-chan(s.message1,s.message2);
+	ack_chan : process one-bit-chan(r.ack);
+ASSIGN
+	init(s.message2) := FALSE;
+	init(r.expected) := FALSE;
+	init(r.ack) := TRUE;
+	init(msg_chan.output2) := TRUE;
+	init(ack_chan.output) := TRUE;
+
+LTLSPEC G (s.st=sent & s.message1=TRUE -> msg_chan.output1=FALSE)
+
