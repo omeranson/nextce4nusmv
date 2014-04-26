@@ -14,19 +14,36 @@
 #include "node/node.h"
 #include "ltl/ltl.h"
 
+/* Used in debug/error printouts */
 extern FILE * nusmv_stderr;
+/**
+ * This structure contains the options passed as command line arguments.
+ */
 typedef struct {
 	int prop_num;
 } options_t;
 
+/* Forward declarations: */
 static Expr_ptr generate_state_eq(Trace_ptr trace, TraceIter iter);
 static Expr_ptr get_inv(Prop_ptr prop);
 
+/**
+ * Debug function to display in a human-readable way the command line options
+ * as they were understood
+ * @param fname The name of the calling function
+ * @param options The command line arguments structure to display
+ */
 void debug_show_options(const char * fname, const options_t *options) {
 	nextce_debug(5, "%s: Showing options:", fname);
 	nextce_debug(5, "%s: \tprop_num: %d", fname, options->prop_num);
 }
 
+/**
+ * Returns the counter example (as a trace/Trace_ptr) of the given formula (as a
+ * propery/Prop_ptr).
+ * @param prop The property whose trace to reture
+ * @returns the trace (counter example) of the given property
+ */
 static Trace_ptr get_ce(Prop_ptr prop) {
 	static const char * fname = __func__;
 	int index = Prop_get_trace(prop);
@@ -37,29 +54,12 @@ static Trace_ptr get_ce(Prop_ptr prop) {
 	return trace;
 }
 
-/* Returns 0 if false, 1 if true */
-//static int nextce_test_expr_in_step(TraceIter step, Expr_ptr expr) {
-//	static const char * fname = __func__;
-//	/* I don't know - Maybe:
-//	 * 	Create FSM. Initial state: step's variables. Transition: Loop.
-//	 * 	Expr: expr
-//	 * Should work for non-temporals.
-//	 */
-//	Prop_ptr prop;
-//	int rc = 0;
-//
-//	prop = Prop_create_partial(expr, Prop_Ltl);
-//	if (is_nextce_debug(5)) {
-//		printf("%s: Checking if state fullfills property:\n", fname);
-//		Ltl_CheckLtlSpec(prop);
-//	} else {
-//		Ltl_CheckLtlSpecSilent(prop);
-//	}
-//	rc = (Prop_get_status(prop) == Prop_True);
-//	Prop_destroy(prop);
-//	return rc;
-//}
-
+/**
+ * Return a conjunction of the two given parameters.
+ * @param dest The first expression/parameter
+ * @param src The second expression/parameter
+ * @return The expression: dest AND src
+ */
 static Expr_ptr conjunct(node_ptr dest, node_ptr src) {
 	if (dest) {
 		return Expr_and(dest, src);
@@ -67,6 +67,15 @@ static Expr_ptr conjunct(node_ptr dest, node_ptr src) {
 	return src;
 }
 
+/**
+ * Create a new FlatHierarchy object for the property - specifically for this
+ * specific step in the counter example.
+ * This structure is necessary to construct a FSM that will state whether this
+ * state holds for a given LTL specification
+ * @param trace The counter example
+ * @param step The specific step within the counter example
+ * @return A new FlatHierarchy_ptr object
+ */
 static FlatHierarchy_ptr create_new_prop_flat_hierarchy(
 		Trace_ptr trace, TraceIter step) {
 	Expr_ptr init = NULL;
@@ -116,7 +125,22 @@ static FlatHierarchy_ptr create_new_prop_flat_hierarchy(
 	BddFsm_print_reachable_states_info(new_fsm, true, true, false, stdout);
 	BddFsm_print_reachable_states_info(new_fsm, false, true, true, stdout);
  */
+/* Used to construct FSM (finite state machines) */
 EXTERN FsmBuilder_ptr global_fsm_builder;
+/**
+ * Create a new property to test whether a specific step in the given counter-
+ * example (that belongs to the given property) holds on a given expression.
+ * The property is also set with the generated FSMs.
+ * This method is used to find the first step in the counter-example that does
+ * not hold for the LTL expression.
+ * @param prop The original property
+ * @param expr The LTL expression we want to test
+ * @param trace The counter-example we are looking
+ * @param step The current step in the counter-example we suspect as not holding
+ * 		for the given expression (expr)
+ * @return A new property that when verified, will return true if the step holds
+ * 		for the LTL expression.
+ */
 static Prop_ptr get_new_prop_to_test(Prop_ptr prop, Expr_ptr expr, Trace_ptr trace, TraceIter step) {
 	SexpFsm_ptr sexpfsm;
 	BddFsm_ptr prop_bdd_fsm;
@@ -145,6 +169,18 @@ static Prop_ptr get_new_prop_to_test(Prop_ptr prop, Expr_ptr expr, Trace_ptr tra
 	return res;
 }
 
+/**
+ * Test if the given step (step) in the given counter example (trace) of the
+ * given property (prop) holds under the given expression (expr).
+ * This method is used to find the first step in the counter-example that does
+ * not hold for the LTL expression.
+ * @param prop The property for which the counter example is given
+ * @param expr The counter example step should hold for this expression
+ * @param trace The counter example
+ * @param step The step in the counter example - we want to know if this step
+ * 		holds for expr.
+ * @return True (or a C equivalent) if step holds for expr. False otherwise.
+ */
 static int test_expr_in_state(Prop_ptr prop, Expr_ptr expr, Trace_ptr trace, TraceIter step) {
 	Prop_ptr test = get_new_prop_to_test(prop, expr, trace, step);
 	// Prop_verify(test);
@@ -152,6 +188,14 @@ static int test_expr_in_state(Prop_ptr prop, Expr_ptr expr, Trace_ptr trace, Tra
 	return (Prop_get_status(test) == Prop_True);
 }
 
+/**
+ * Find the first step in the given counter example (trace) which does not hold
+ * for the expression in the property. i.e. find the first step in the counter
+ * example where the property fails the expression
+ * @param prop The property that generated the counter example (also contains the expr.)
+ * @param trace The counter example
+ * @return An iterator pointing to the first step failing the expression
+ */
 static TraceIter find_trunc_trace_step(Prop_ptr prop, Trace_ptr trace) {
 	static const char * fname = __func__;
 	TraceIter first = NULL;
@@ -170,6 +214,17 @@ static TraceIter find_trunc_trace_step(Prop_ptr prop, Trace_ptr trace) {
 	return first;
 }
 
+/**
+ * Create an expression that tests whether the current state is an initial state -
+ * i.e. can the FSM start from this state?
+ * This is done, since we want to trim counter examples to be as short as possible.
+ * We want to select the latest step that can be considered an initial step, and
+ * ignore what happened before it (since a shorter counter example can be generated
+ * by starting directly from this step).
+ * @param trace The counter example
+ * @param sexpfsm The FSM
+ * @return The expression to test whether a step is an initial state in sexpfsm
+ */
 static Expr_ptr construct_is_init_state_expr(
 		Trace_ptr trace, SexpFsm_ptr sexpfsm) {
 	static const char * fname = __func__;
@@ -213,6 +268,15 @@ static Expr_ptr construct_is_init_state_expr(
 	
 }
 
+/**
+ * Given a counter example, find the last step (before a given 'end step') that
+ * comes can be considered an initial step (i.e. the counter example could have
+ * started from it, and we can trim the counter example up to that point).
+ * @param prop The property that generated the counter example
+ * @param trace The counter example
+ * @param until_here Consider steps only up to (and not including) this step
+ * @return An iterator pointing to the latest relevant initial state
+ */
 static TraceIter find_init_trace_step(
 		Prop_ptr prop, Trace_ptr trace, TraceIter until_here) {
 	static const char * fname = __func__;
@@ -243,7 +307,15 @@ static TraceIter find_init_trace_step(
 	return last;
 }
 
-/* Create a FIPATH from a counter example, as defined in the paper. */
+/**
+ * Create a FIPATH from a counter example. FIPATHs are defined in the paper.
+ * It appears that NuSMV takes care of the following steps for us:
+ * progress, reduce_config_loops, reduce_vals
+ * @param prop The property that generated the counter example
+ * @param trace The counter example
+ * @return The FIPATH - A trimmed counter example containing less information we
+ * 		do not need.
+ */
 static Trace_ptr create_fipath(Prop_ptr prop, Trace_ptr trace) {
 	static const char * fname = __func__;
 	TraceIter until_here = find_trunc_trace_step(prop, trace);
@@ -267,6 +339,10 @@ static Trace_ptr create_fipath(Prop_ptr prop, Trace_ptr trace) {
 	return result;
 }
 
+/**
+ * A debug function to print the given expression
+ * @param expr The expression to print
+ */
 static void debug_print_expr(Expr_ptr expr) {
 	Prop_ptr prop;
 	if (!is_nextce_debug(5)) {
@@ -296,6 +372,12 @@ static Expr_ptr nextce_expr_prev(Expr_ptr psi) {
 	return result;
 }
 
+/**
+ * Extract the invariant from the given property. We assume the property's
+ * formula is given as an LTLSPEC: G(inv). This method returns inv.
+ * @param prop The property defining the expression
+ * @return The invariant expression defined in the property
+ */
 static Expr_ptr get_inv(Prop_ptr prop) {
 	Expr_ptr expr = Prop_get_expr(prop);
 	int type = node_get_type(expr);
@@ -312,6 +394,14 @@ static Expr_ptr get_inv(Prop_ptr prop) {
 	return expr; /* Unhealthy default */
 }
 
+/**
+ * Generate an expression describing the given step in the counter example.
+ * Basically creates an expression V (variable == value) where V is the conjunction
+ * operator, iterating all variables in the counter example step.
+ * @param trace The counter example
+ * @param iter The step in the counter example
+ * @return An expression for the given step in the given counter example
+ */
 static Expr_ptr generate_state_eq(Trace_ptr trace, TraceIter iter) {
 	static const char * fname = __func__;
 	TraceSymbolsIter symbols_iter;
@@ -349,6 +439,12 @@ static Expr_ptr generate_state_eq(Trace_ptr trace, TraceIter iter) {
 	return result;
 }
 
+/**
+ * Generate a disjunct for the 1st equivalence class
+ * @param prop The property for which to generate the disjunct
+ * @param fipath The FIPATH on which to base the disjunct.
+ * @return A disjunct for the 1st equivalence class
+ */
 static Expr_ptr generate_disjunc_1(Prop_ptr prop, Trace_ptr fipath) {
 	static const char * fname = __func__;
 	TraceIter state;
@@ -371,6 +467,12 @@ static Expr_ptr generate_disjunc_1(Prop_ptr prop, Trace_ptr fipath) {
 	return result;
 }
 
+/**
+ * Generate a disjunct for the 2nd equivalence class
+ * @param prop The property for which to generate the disjunct
+ * @param fipath The FIPATH on which to base the disjunct.
+ * @return A disjunct for the 2nd equivalence class
+ */
 static Expr_ptr generate_disjunc_2(Prop_ptr prop, Trace_ptr fipath) {
 	static const char * fname = __func__;
 	TraceIter state;
@@ -393,6 +495,12 @@ static Expr_ptr generate_disjunc_2(Prop_ptr prop, Trace_ptr fipath) {
 }
 
 static Expr_ptr generate_disjunc_4(Prop_ptr prop, Trace_ptr fipath);
+/**
+ * Generate a disjunct for the 3rd equivalence class
+ * @param prop The property for which to generate the disjunct
+ * @param fipath The FIPATH on which to base the disjunct.
+ * @return A disjunct for the 3rd equivalence class
+ */
 static Expr_ptr generate_disjunc_3(Prop_ptr prop, Trace_ptr fipath) {
 	static const char * fname = __func__;
 	TraceIter first_state;
@@ -412,6 +520,12 @@ static Expr_ptr generate_disjunc_3(Prop_ptr prop, Trace_ptr fipath) {
 	return Expr_and(first, result);
 }
 
+/**
+ * Generate a disjunct for the 4th equivalence class
+ * @param prop The property for which to generate the disjunct
+ * @param fipath The FIPATH on which to base the disjunct.
+ * @return A disjunct for the 4th equivalence class
+ */
 static Expr_ptr generate_disjunc_4(Prop_ptr prop, Trace_ptr fipath) {
 	static const char * fname = __func__;
 	TraceIter last_state;
@@ -430,6 +544,15 @@ static Expr_ptr generate_disjunc_4(Prop_ptr prop, Trace_ptr fipath) {
 	return result;
 }
 
+/**
+ * Generate a disjunct for the given property, according to the given FIPATH.
+ * This disjunct can then be disjuncted with the rest of the disjuncts and the
+ * property's expression, to generate the next counter example.
+ * The equivalence class is taken from the global option.
+ * @param prop The property for which to generate the disjunct
+ * @param fipath The FIPATH on which to base the disjunct.
+ * @return A disjunct for the given property
+ */
 static Expr_ptr generate_disjunc(Prop_ptr prop, Trace_ptr fipath) {
 	static const char * fname = __func__;
 	Expr_ptr result = NULL;
@@ -454,6 +577,11 @@ static Expr_ptr generate_disjunc(Prop_ptr prop, Trace_ptr fipath) {
 	return result;
 }
 
+/**
+ * Generate a disjunct, and append it to the nextce internal structure.
+ * @param prop The property for which to create the disjunct
+ * @param fipath The FIPATH on which to base the disjunct
+ */
 void generate_and_append_disjunc(Prop_ptr prop, Trace_ptr fipath) {
 	Expr_ptr lqi = generate_disjunc(prop, fipath);
 	NextCE_ptr nextce = Prop_get_nextce_data(prop);
@@ -464,6 +592,12 @@ void generate_and_append_disjunc(Prop_ptr prop, Trace_ptr fipath) {
 	NextCE_add_disjunct(nextce, lqi);
 }
 
+/**
+ * Create a new expression as a disjunction of the given property's expression
+ * and the disjuncts in the nextce internal structure
+ * @param prop The property for which to create the expression
+ * @return an expression to generate the next counter example.
+ */
 static Expr_ptr create_new_expr(Prop_ptr prop) {
 	static const char * fname = __func__;
 	Expr_ptr result;
@@ -473,7 +607,6 @@ static Expr_ptr create_new_expr(Prop_ptr prop) {
 
 	nextce_debug(5, "%s: Enter", fname); 
 	result = Prop_get_expr(prop);
-//	ITERATE_DISJUNCTS(Prop_get_nextce_data(prop), list, disjunct) {
 	nextce = Prop_get_nextce_data(prop);
 	for (list = NextCE_get_disjuncts(nextce); list != Nil; list = cdr(list)) {
 		disjunct = car(list);
@@ -488,6 +621,15 @@ static Expr_ptr create_new_expr(Prop_ptr prop) {
 
 /* Update the property - if property hasn't been checked, do nothing. Otherwise,
 add L_{q_i} to the property.*/ 
+/**
+ * In general, create a new property. Assign to it the expression generate by
+ * #create_new_expr, and return it.
+ * In special cases, where there is no need to create a new expression (after
+ * reset, or first run), this method may return the original property.
+ * @param prop The original property.
+ * @param options The command line arguments
+ * @return A new property that when validated will generate the next counter-example
+ */
 Prop_ptr create_updated_prop(Prop_ptr prop, const options_t * options) {
 	static const char * fname = __func__;
 	Prop_Status status;
@@ -526,8 +668,11 @@ Prop_ptr create_updated_prop(Prop_ptr prop, const options_t * options) {
 }
 
 /**
-	Returns 0 if prop has no more counter examples - i.e. prop is now true
-*/
+ * Display the next counter example of the given property.
+ * @param prop The property whose counter examples to display
+ * @param options The parsed command line options
+ * @return 0 if prop has no more counter examples - i.e. prop is now true
+ */
 int displayNextCE(Prop_ptr prop, const options_t * options) {
 	static const char * fname = __func__;
 	Prop_ptr new_prop;
@@ -560,6 +705,12 @@ int displayNextCE(Prop_ptr prop, const options_t * options) {
 	return 1;
 }
 
+/**
+ * Select a property according to the command line arguments (1 by name, 1 by
+ * number/index, or all properties), and display their next counter example
+ * @param options The command line options structure
+ * @return 0
+ */
 int nextceDo(const options_t * options) {
 	static const char * fname = __func__;
 	int cnt;
@@ -577,6 +728,13 @@ int nextceDo(const options_t * options) {
 	return 0;
 }
 
+/**
+ * Reset the given property with respect to nextce data - i.e. reset the nextce
+ * internal structer. In case one does not exist, it will be created.
+ * Status is set to 'Reset'.
+ * @param prop The property to reset
+ * @param options the command line options
+ */
 static void resetceDoOne(Prop_ptr prop, const options_t * options) {
 	NextCE_ptr nextce = Prop_get_nextce_data(prop);
 	if (!nextce) {
@@ -588,6 +746,12 @@ static void resetceDoOne(Prop_ptr prop, const options_t * options) {
 	NextCE_set_status(nextce, NextCE_Reset);
 }
 
+/**
+ * Select a property according to the command line arguments (1 by name, 1 by
+ * number/index, or all properties), and reset it with respect to nextce data.
+ * @param options The command line options structure
+ * @return 0
+ */
 int resetceDo(const options_t * options) {
 	static const char * fname = __func__;
 	int cnt;
@@ -605,6 +769,11 @@ int resetceDo(const options_t * options) {
 	return 0;
 }
 
+/**
+ * Print usage information for the given command name to standard error.
+ * @param name The command name (nextce, resetce, compute_all).
+ * @return 1
+ */
 int NextCEUsage(const char * name) {
 	fprintf(nusmv_stderr, "Usage: %s [-h] [ [ -n index ] | [ -P name ] ]\n", name);
 	fprintf(nusmv_stderr, "  -h \t\tPrints this message\n");
@@ -613,6 +782,16 @@ int NextCEUsage(const char * name) {
 	return 1;
 }
 
+/**
+ * Parse the command line arguments (with respect to the invoked command, if it
+ * makes a difference), and populate the given command line options structure
+ * with the relevant information.
+ * @param options The command line options structure to populate
+ * @param name The invoked command's name
+ * @param argc The number of command line arguments
+ * @param argv A C array of C string - the command line arguments themselves
+ * @return 0 on success, 1 on failure
+ */
 int populateOptions(options_t * options, const char * name, int argc, char ** argv) {
 	static const char * fname = __func__;
 	int c;
@@ -660,6 +839,12 @@ int populateOptions(options_t * options, const char * name, int argc, char ** ar
 	return 0;
 }
 
+/**
+ * This method is called when the user invoked 'nextce ...'
+ * @param argc The number of command line arguments
+ * @param argv A C array of C string - the command line arguments themselves
+ * @return 0 on success, non-0 on failure
+ */
 int CommandCENextCE(int argc, char ** argv) {
 	static const char * fname = "CommandCENextCE";
 	int rc;
@@ -673,11 +858,20 @@ int CommandCENextCE(int argc, char ** argv) {
 	return rc;
 }
 
+/**
+ * Reset all properties with respect to nextce information.
+ */
 void resetAllCE() {
 	options_t options = {-1};
 	resetceDo(&options);
 }
 
+/**
+ * This method is called when the user invoked 'resetce ...'
+ * @param argc The number of command line arguments
+ * @param argv A C array of C string - the command line arguments themselves
+ * @return 0 on success, non-0 on failure
+ */
 int CommandCEResetCE(int argc, char ** argv) {
 	static const char * fname = "CommandCEResetCE";
 	int rc;
@@ -692,6 +886,12 @@ int CommandCEResetCE(int argc, char ** argv) {
 	return rc;
 }
 
+/**
+ * Compute all counter examples and display them for the given single property.
+ * Continues from where invocations to next_ce left off.
+ * @param prop The property to display
+ * @param options Parsed command line options
+ */
 void compuateAllDoOne(Prop_ptr prop, options_t * options) {
 	int rc;
 	do {
@@ -699,6 +899,12 @@ void compuateAllDoOne(Prop_ptr prop, options_t * options) {
 	} while (rc != 0);
 }
 
+/**
+ * Select a property according to the command line arguments (1 by name, 1 by
+ * number/index, or all properties), and display all its counter examples
+ * @param options The command line options structure
+ * @return 0
+ */
 int computeAllDo(options_t * options) {
 	static const char * fname = __func__;
 	int cnt;
@@ -717,6 +923,12 @@ int computeAllDo(options_t * options) {
 	return 0;
 }
 
+/**
+ * This method is called when the user invoked 'compute_all ...'
+ * @param argc The number of command line arguments
+ * @param argv A C array of C string - the command line arguments themselves
+ * @return 0 on success, non-0 on failure
+ */
 int CommandCEComputeAll(int argc, char ** argv) {
 	static const char * fname = "CommandCEComputeAll";
 	options_t options = {-1};
@@ -731,15 +943,29 @@ int CommandCEComputeAll(int argc, char ** argv) {
 	return rc;
 }
 
-/* I despise globals, but creating a global instance for a single integer seems
-a bit much. If we ever have more than this single int as a global, we should
-switch over. */
+/**
+ * This integer holds the set equivalence_class, as set by calls to set
+ * ce_equivalence.
+ * Note: I despise globals, but creating a global instance for a single integer
+ * seems a bit much. If we ever have more than this single int as a global, we
+ * should switch over. */
 static int equivalence_class = 1;
 
+/**
+ * Getter function for the global equivalnce_class registry value.
+ * This method is used to retrieve the equivalence class set with the call:
+ * 'set ce_equivalence'
+ * @return The set equivalnce_class.
+ */
 int NextCE_get_equivalence_class() {
 	return equivalence_class;
 }
 
+/**
+ * Setter function for the global equivalnce_class registry value.
+ * This method is invoked when the user calls 'set ce_equivalence'
+ * @param class The new equivalnce_class to be set.
+ */
 void NextCE_set_equivalence_class(int class) {
 	static const char * fname = __func__;
 	nextce_debug(5, "%s: Enter with %d", fname, class);
