@@ -27,3 +27,4 @@ Usage:
 4. Run: next_ce to get the next counter-example
 4. (Alternatively) Run: compute_all to get all counterexamples.
 
+To add debug information, run: export NEXTCE_DEBUG=5 (for bash-like shells)
