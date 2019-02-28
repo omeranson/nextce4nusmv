@@ -20,3 +20,10 @@ libraries are installed.
 
 NuSMV should compile. Once compiled, a NuSMV binary is created and can bea executed.
 
+Usage:
+1. Run: ./NuSMV -int <filename.smv>
+2. (Optionally) Set ce_equivalence class (1-4): set ce_equivalence <class>
+3. Run: go
+4. Run: next_ce to get the next counter-example
+4. (Alternatively) Run: compute_all to get all counterexamples.
+
